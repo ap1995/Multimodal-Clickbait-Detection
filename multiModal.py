@@ -124,14 +124,8 @@ def run(train_data, test_data, truth_data):
     embedded_sequences = embedding_layer(sequence_input)
     l_lstm = Bidirectional(LSTM(100))(embedded_sequences)
     preds = Dense(2, activation='softmax')(l_lstm)
-    # preds = AttentionDecoder(100, MAX_SEQUENCE_LENGTH, activation="softmax", return_sequences=True)(preds)
     model = Model(sequence_input, preds)
-    # model = Sequential()
-    # model.add(Bidirectional(LSTM(100), input_shape=(MAX_SEQUENCE_LENGTH, )))
-    # model.add_update(ac.AttentionWithContext()) ###############
-    # model.add(ac.AttentionWithContext())
-    # model.add(Dense(2, activation='softmax'))
-    # model.add(AttentionDecoder(100, MAX_SEQUENCE_LENGTH, activation="softmax"))
+    model.add_update(ac.AttentionWithContext()) ###############
     checkpoint = ModelCheckpoint("weights-bilstm-{epoch:02d}-{val_acc:.2f}.hdf5")
     callbacks_list = [checkpoint]
     model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['acc'])
@@ -171,7 +165,7 @@ count = 0
 train_val_data = []
 test_data = []
 
-########## ADD ATTENTION #######
+########## WITH TEXT ATTENTION #######
 
 with jsonlines.open('instances.jsonl') as reader:
     for obj in reader.iter(type=dict, skip_invalid=True):
