@@ -12,6 +12,11 @@ os.environ['KERAS_BACKEND'] = 'theano'
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils.np_utils import to_categorical
+from keras.layers.merge import concatenate
+
+from keras.preprocessing import image
+from keras.applications.vgg16 import VGG16
+from keras.applications.imagenet_utils import preprocess_input
 
 from keras.callbacks import ModelCheckpoint
 from keras.models import Sequential
@@ -37,8 +42,14 @@ def run(train_data, test_data, truth_data):
             final_vals.append([vals[i][0], [vals[i][1][0]], [vals[i][2]], vals[i][3]])
 
     vals_df = pd.DataFrame(final_vals, columns=["id", "file_path", "title", "truthClass"])
+
+    finalTestvals = []
     test_data_df = pd.DataFrame.from_dict(test_data)
     test = pd.merge(test_data_df, truth_data_df, on="id")
+    test_vals = test[features].values.tolist()
+    for i in range(len(test_vals)):
+        if test_vals[i][1] != []:
+            finalTestvals.append([test_vals[i][0], [test_vals[i][1][0]], [test_vals[i][2]], test_vals[i][3]])
     tdata = test[features].values
     tdata = test_data_df.values
 
@@ -60,7 +71,7 @@ def run(train_data, test_data, truth_data):
 
     for i in range(vals_df.values.shape[0]):
         text = []
-        for j in range(0,5):
+        for j in range(1,5):
             k = vals_df.values[i][2]
             text+=(k)
         words = ""
@@ -124,15 +135,32 @@ def run(train_data, test_data, truth_data):
     embedded_sequences = embedding_layer(sequence_input)
     l_lstm = Bidirectional(LSTM(100))(embedded_sequences)
     preds = Dense(2, activation='softmax')(l_lstm)
-    model = Model(sequence_input, preds)
-    model.add_update(ac.AttentionWithContext()) ###############
+    # preds = AttentionDecoder(100, MAX_SEQUENCE_LENGTH, activation="softmax", return_sequences=True)(preds)
+    model1 = Model(sequence_input, preds)
+    # model = Sequential()
+    # model.add(Bidirectional(LSTM(100), input_shape=(MAX_SEQUENCE_LENGTH, )))
+    model1.add_update(ac.AttentionWithContext()) ###############
+    # model.add(ac.AttentionWithContext())
+    # model.add(Dense(2, activation='softmax'))
+    # model.add(AttentionDecoder(100, MAX_SEQUENCE_LENGTH, activation="softmax"))
     checkpoint = ModelCheckpoint("weights-bilstm-{epoch:02d}-{val_acc:.2f}.hdf5")
     callbacks_list = [checkpoint]
-    model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['acc'])
+    model1.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['acc'])
 
     print("model fitting - Bidirectional LSTM with Attention")
+    model1.summary()
+    model1.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10, batch_size=50, callbacks=callbacks_list)
+
+def imgModel(vals_df):
+    model = VGG16(weights='imagenet', include_top=False)
     model.summary()
-    model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10, batch_size=50, callbacks=callbacks_list)
+
+    for img_path in vals_df[1]:
+        img = image.load_img(img_path, target_size=(224, 224))
+        img_data = image.img_to_array(img)
+        img_data = np.expand_dims(img_data, axis=0)
+        img_data = preprocess_input(img_data)
+        vgg16_feature = model.predict(img_data)
 
 def clean_str(string):
     """
@@ -165,7 +193,7 @@ count = 0
 train_val_data = []
 test_data = []
 
-########## WITH TEXT ATTENTION #######
+########## ADD ATTENTION #######
 
 with jsonlines.open('instances.jsonl') as reader:
     for obj in reader.iter(type=dict, skip_invalid=True):
