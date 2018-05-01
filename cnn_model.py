@@ -8,10 +8,11 @@ class cnn_model():
 
     def __init__(self,config):
         self.config = config
+        self.nn = NN(self.config)
 
     def build(self):
         """ Build the model. """
-        self.nn = NN(self.config)
+
         self.build_cnn()
 
     def load_cnn(self, session, data_path, ignore_missing=True):
@@ -41,7 +42,7 @@ class cnn_model():
             self.build_resnet50()
         print("CNN built.")
 
-    def build_vgg16(self):
+    def build_vgg16(self,images):
         """ Build the VGG16 net. """
         config = self.config
 
@@ -78,6 +79,8 @@ class cnn_model():
         self.num_ctx = 196
         self.dim_ctx = 512
         self.images = images
+
+        return conv5_3_feats
 
     def build_resnet50(self):
         """ Build the ResNet50. """

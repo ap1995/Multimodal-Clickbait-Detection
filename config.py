@@ -4,8 +4,10 @@ class Config(object):
     def __init__(self):
         # about the model architecture
         self.cnn = 'vgg16'               # 'vgg16' or 'resnet50'
-        self.vgg16_file = './vgg16_no_fc.py'
-        self.resnet50_file = './resnt50_no_fc.py'
+        self.vgg16_file = './vgg16_no_fc.npy'
+        self.resnet50_file = './resnt50_no_fc.npy'
+        self.phase='train'
+        self.train_cnn = True
         self.image_shape = [224, 224, 3]
         self.max_caption_length = 20
         self.dim_embedding = 512
@@ -29,7 +31,7 @@ class Config(object):
 
         # about the optimization
         self.num_epochs = 100
-        self.batch_size = 32
+        self.batch_size = 1
         self.optimizer = 'Adam'    # 'Adam', 'RMSProp', 'Momentum' or 'SGD'
         self.initial_learning_rate = 0.0001
         self.learning_rate_decay_factor = 1.0
