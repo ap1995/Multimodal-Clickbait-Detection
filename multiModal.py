@@ -172,7 +172,8 @@ def imgModel(vals_df):
     model.load_cnn(sess,config.vgg16_file)
 
 
-    for img_path in vals_df[1]:
+    for entry in vals_df.values:
+        img_path = entry[1][0]
         img = image.load_img(img_path, target_size=(224, 224))
         img_data = image.img_to_array(img)
         img_data = np.expand_dims(img_data, axis=0)
