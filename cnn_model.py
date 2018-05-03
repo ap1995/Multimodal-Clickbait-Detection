@@ -46,9 +46,9 @@ class cnn_model():
         """ Build the VGG16 net. """
         config = self.config
 
-        images = tf.placeholder(
-            dtype = tf.float32,
-            shape = [config.batch_size] + config.image_shape)
+#         images = tf.placeholder(
+#             dtype = tf.float32,
+#             shape = [config.batch_size] + config.image_shape)
 
         conv1_1_feats = self.nn.conv2d(images, 64, name = 'conv1_1')
         conv1_2_feats = self.nn.conv2d(conv1_1_feats, 64, name = 'conv1_2')
