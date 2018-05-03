@@ -13,6 +13,7 @@ from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils.np_utils import to_categorical
 from keras.layers.merge import concatenate
+from keras.layers import Add
 
 from keras.preprocessing import image
 from keras.applications.vgg16 import VGG16
@@ -47,7 +48,9 @@ def run(train_data, test_data, truth_data):
 
     vals_df = pd.DataFrame(final_vals, columns=["id", "file_path", "title", "truthClass"])
 
-    imgModel(vals_df)
+    image_features = imgModel(vals_df)
+    print("-------------------xtrainshrpe")
+    print(type(image_features[0][0]))
     finalTestvals = []
     test_data_df = pd.DataFrame.from_dict(test_data)
     test = pd.merge(test_data_df, truth_data_df, on="id")
@@ -111,6 +114,10 @@ def run(train_data, test_data, truth_data):
     x_test = tdata
     y_test = tlabels
 
+
+    image_features_train = image_features[:-nb_validation_samples]
+    image_features_val = image_features[-nb_validation_samples:]
+
     print('Training and validation sets')
     print(y_train.sum(axis=0))
     print(y_val.sum(axis=0))
@@ -136,30 +143,43 @@ def run(train_data, test_data, truth_data):
     embedding_layer = Embedding(len(word_index) + 1, EMBEDDING_DIM, weights=[embedding_matrix], input_length=MAX_SEQUENCE_LENGTH,
                                 trainable=True)
 
-    sequence_input = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
+    sequence_input = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='float32')
+
+    image_data_input = Input(shape=(100352,),dtype='float32')
     embedded_sequences = embedding_layer(sequence_input)
     l_lstm = Bidirectional(LSTM(100))(embedded_sequences)
-    preds = Dense(2, activation='softmax')(l_lstm)
-    # preds = AttentionDecoder(100, MAX_SEQUENCE_LENGTH, activation="softmax", return_sequences=True)(preds)
-    model1 = Model(sequence_input, preds)
-    # model = Sequential()
-    # model.add(Bidirectional(LSTM(100), input_shape=(MAX_SEQUENCE_LENGTH, )))
+
+    print("-----------------------------")
+    print(l_lstm.shape)
+
+    preds_text = Dense(2, activation='softmax')(l_lstm)
+
+    preds_image = Dense(2,activation='softmax')(image_data_input)
+
+    preds_add = Add()([preds_text,preds_image])
+
+    preds = Dense(2)(preds_add)
+
+
+    #preds = preds_text
+
+    model1 = Model([sequence_input,image_data_input], preds)
     model1.add_update(ac.AttentionWithContext()) ###############
-    # model.add(ac.AttentionWithContext())
-    # model.add(Dense(2, activation='softmax'))
-    # model.add(AttentionDecoder(100, MAX_SEQUENCE_LENGTH, activation="softmax"))
+
     checkpoint = ModelCheckpoint("weights-bilstm-{epoch:02d}-{val_acc:.2f}.hdf5")
     callbacks_list = [checkpoint]
     model1.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['acc'])
 
     print("model fitting - Bidirectional LSTM with Attention")
     model1.summary()
-    model1.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10, batch_size=50, callbacks=callbacks_list)
+    print('------')
+
+    model1.fit([x_train, np.array(image_features_train)], y_train, validation_data=([x_val, np.array(image_features_val)], y_val), epochs=10, batch_size=50, callbacks=callbacks_list)
 
 def imgModel(vals_df):
     # model = VGG16(weights='imagenet', include_top=False)
     # model.summary()
-
+    img_features = []
     config = Config()
     images = tf.placeholder(
         dtype=tf.float32,
@@ -179,12 +199,58 @@ def imgModel(vals_df):
         img_data = np.expand_dims(img_data, axis=0)
         img_data = preprocess_input(img_data)
         imgList = img_data
-        
+
         # vgg16_feature = model.predict(img_data)
 
         vgg16_feature = sess.run(features,feed_dict={images:img_data})
-        print(vgg16_feature)
-        break
+        # print("----------------------------------------------------------")
+        # print(type(vgg16_feature))
+        img_features.append(vgg16_feature[0])
+
+    return img_features
+
+def attend(self, contexts, output):
+    """ Attention Mechanism. """
+    config = self.config
+    reshaped_contexts = tf.reshape(contexts, [-1, self.dim_ctx])
+    reshaped_contexts = self.nn.dropout(reshaped_contexts)
+    output = self.nn.dropout(output)
+    if config.num_attend_layers == 1:
+        # use 1 fc layer to attend
+        logits1 = self.nn.dense(reshaped_contexts,
+                                units=1,
+                                activation=None,
+                                use_bias=False,
+                                name='fc_a')
+        logits1 = tf.reshape(logits1, [-1, self.num_ctx])
+        logits2 = self.nn.dense(output,
+                                units=self.num_ctx,
+                                activation=None,
+                                use_bias=False,
+                                name='fc_b')
+        logits = logits1 + logits2
+    else:
+        # use 2 fc layers to attend
+        temp1 = self.nn.dense(reshaped_contexts,
+                              units=config.dim_attend_layer,
+                              activation=tf.tanh,
+                              name='fc_1a')
+        temp2 = self.nn.dense(output,
+                              units=config.dim_attend_layer,
+                              activation=tf.tanh,
+                              name='fc_1b')
+        temp2 = tf.tile(tf.expand_dims(temp2, 1), [1, self.num_ctx, 1])
+        temp2 = tf.reshape(temp2, [-1, config.dim_attend_layer])
+        temp = temp1 + temp2
+        temp = self.nn.dropout(temp)
+        logits = self.nn.dense(temp,
+                               units=1,
+                               activation=None,
+                               use_bias=False,
+                               name='fc_2')
+        logits = tf.reshape(logits, [-1, self.num_ctx])
+    alpha = tf.nn.softmax(logits)
+    return alpha
 
 def clean_str(string):
     """
@@ -214,17 +280,16 @@ EMBEDDING_DIM = 100
 VALIDATION_SPLIT = 0.1111806
 
 count = 0
+LIMIT = 100
 train_val_data = []
 test_data = []
-
-########## ADD ATTENTION #######
 
 with jsonlines.open('instances.jsonl') as reader:
     for obj in reader.iter(type=dict, skip_invalid=True):
         count += 1
-        if (count > 9275):
+        if (count > 90 and count<=LIMIT): #9275
             test_data.append(obj)
-        if(count<=9275):
+        if(count<=90):
             train_val_data.append(obj)
 
 count = 0
