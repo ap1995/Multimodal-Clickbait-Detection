@@ -23,11 +23,15 @@ from keras.models import Sequential
 from keras.layers import Dense, Input, Flatten, Activation
 from keras.layers import Conv1D, MaxPooling1D, Embedding, Merge, Dropout, LSTM, GRU, Bidirectional
 from keras.models import Model
-from attention_decoder import AttentionDecoder
+#from attention_decoder import AttentionDecoder
 import AttentionwithContext as ac
 from keras import backend as K
 from keras.engine.topology import Layer, InputSpec
 # from keras import initializations
+
+import tensorflow as tf
+from config import Config
+from cnn_model import cnn_model
 
 def run(train_data, test_data, truth_data):
     final_vals = []
@@ -43,6 +47,7 @@ def run(train_data, test_data, truth_data):
 
     vals_df = pd.DataFrame(final_vals, columns=["id", "file_path", "title", "truthClass"])
 
+    imgModel(vals_df)
     finalTestvals = []
     test_data_df = pd.DataFrame.from_dict(test_data)
     test = pd.merge(test_data_df, truth_data_df, on="id")
@@ -152,15 +157,33 @@ def run(train_data, test_data, truth_data):
     model1.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10, batch_size=50, callbacks=callbacks_list)
 
 def imgModel(vals_df):
-    model = VGG16(weights='imagenet', include_top=False)
-    model.summary()
+    #model = VGG16(weights='imagenet', include_top=False)
+    #model.summary()
 
-    for img_path in vals_df[1]:
+    config = Config()
+    images = tf.placeholder(
+        dtype=tf.float32,
+        shape=[config.batch_size] + config.image_shape)
+
+    sess = tf.Session()
+
+    model = cnn_model(config)
+    features = model.build_vgg16(images)
+    model.load_cnn(sess,config.vgg16_file)
+
+
+    for entry in vals_df.values:
+        img_path = entry[1][0]
         img = image.load_img(img_path, target_size=(224, 224))
         img_data = image.img_to_array(img)
         img_data = np.expand_dims(img_data, axis=0)
         img_data = preprocess_input(img_data)
-        vgg16_feature = model.predict(img_data)
+
+        #vgg16_feature = model.predict(img_data)
+
+        vgg16_feature = sess.run(features,feed_dict={images:img_data})
+        print(vgg16_feature)
+        break
 
 def clean_str(string):
     """
