@@ -157,8 +157,8 @@ def run(train_data, test_data, truth_data):
     model1.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10, batch_size=50, callbacks=callbacks_list)
 
 def imgModel(vals_df):
-    #model = VGG16(weights='imagenet', include_top=False)
-    #model.summary()
+    # model = VGG16(weights='imagenet', include_top=False)
+    # model.summary()
 
     config = Config()
     images = tf.placeholder(
@@ -179,10 +179,8 @@ def imgModel(vals_df):
         img_data = np.expand_dims(img_data, axis=0)
         img_data = preprocess_input(img_data)
         imgList = img_data
-        print("-------------------------------------")
-        print(img_data.shape)
-        print(type(img_data[0][0][0][0]))
-        #vgg16_feature = model.predict(img_data)
+        
+        # vgg16_feature = model.predict(img_data)
 
         vgg16_feature = sess.run(features,feed_dict={images:img_data})
         print(vgg16_feature)
