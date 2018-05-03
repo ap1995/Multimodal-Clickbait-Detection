@@ -171,14 +171,17 @@ def imgModel(vals_df):
     features = model.build_vgg16(images)
     model.load_cnn(sess,config.vgg16_file)
 
-
     for entry in vals_df.values:
         img_path = entry[1][0]
-        img = image.load_img(img_path, target_size=(224, 224))
+        # print(img_path)
+        img = image.load_img(img_path, target_size=(224, 224,3))
         img_data = image.img_to_array(img)
         img_data = np.expand_dims(img_data, axis=0)
         img_data = preprocess_input(img_data)
-
+        imgList = img_data
+        print("-------------------------------------")
+        print(img_data.shape)
+        print(type(img_data[0][0][0][0]))
         #vgg16_feature = model.predict(img_data)
 
         vgg16_feature = sess.run(features,feed_dict={images:img_data})
