@@ -209,49 +209,6 @@ def imgModel(vals_df):
 
     return img_features
 
-def attend(self, contexts, output):
-    """ Attention Mechanism. """
-    config = self.config
-    reshaped_contexts = tf.reshape(contexts, [-1, self.dim_ctx])
-    reshaped_contexts = self.nn.dropout(reshaped_contexts)
-    output = self.nn.dropout(output)
-    if config.num_attend_layers == 1:
-        # use 1 fc layer to attend
-        logits1 = self.nn.dense(reshaped_contexts,
-                                units=1,
-                                activation=None,
-                                use_bias=False,
-                                name='fc_a')
-        logits1 = tf.reshape(logits1, [-1, self.num_ctx])
-        logits2 = self.nn.dense(output,
-                                units=self.num_ctx,
-                                activation=None,
-                                use_bias=False,
-                                name='fc_b')
-        logits = logits1 + logits2
-    else:
-        # use 2 fc layers to attend
-        temp1 = self.nn.dense(reshaped_contexts,
-                              units=config.dim_attend_layer,
-                              activation=tf.tanh,
-                              name='fc_1a')
-        temp2 = self.nn.dense(output,
-                              units=config.dim_attend_layer,
-                              activation=tf.tanh,
-                              name='fc_1b')
-        temp2 = tf.tile(tf.expand_dims(temp2, 1), [1, self.num_ctx, 1])
-        temp2 = tf.reshape(temp2, [-1, config.dim_attend_layer])
-        temp = temp1 + temp2
-        temp = self.nn.dropout(temp)
-        logits = self.nn.dense(temp,
-                               units=1,
-                               activation=None,
-                               use_bias=False,
-                               name='fc_2')
-        logits = tf.reshape(logits, [-1, self.num_ctx])
-    alpha = tf.nn.softmax(logits)
-    return alpha
-
 def clean_str(string):
     """
     Tokenization/string cleaning for all datasets except for SST.
