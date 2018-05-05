@@ -46,9 +46,9 @@ class cnn_model():
         """ Build the VGG16 net. """
         config = self.config
 
-#         images = tf.placeholder(
-#             dtype = tf.float32,
-#             shape = [config.batch_size] + config.image_shape)
+        # images = tf.placeholder(
+        #     dtype = tf.float32,
+        #     shape = [config.batch_size] + config.image_shape)
 
         conv1_1_feats = self.nn.conv2d(images, 64, name = 'conv1_1')
         conv1_2_feats = self.nn.conv2d(conv1_1_feats, 64, name = 'conv1_2')
@@ -72,15 +72,17 @@ class cnn_model():
         conv5_2_feats = self.nn.conv2d(conv5_1_feats, 512, name = 'conv5_2')
         conv5_3_feats = self.nn.conv2d(conv5_2_feats, 512, name = 'conv5_3')
 
+        # reshaped_conv5_3_feats = tf.reshape(conv5_3_feats,
+        #                                     [config.batch_size, 196, 512])
         reshaped_conv5_3_feats = tf.reshape(conv5_3_feats,
-                                            [config.batch_size, 196, 512])
+                                            [config.batch_size, 196*512])
 
         self.conv_feats = reshaped_conv5_3_feats
         self.num_ctx = 196
         self.dim_ctx = 512
         self.images = images
 
-        return conv5_3_feats
+        return reshaped_conv5_3_feats
 
     def build_resnet50(self):
         """ Build the ResNet50. """
