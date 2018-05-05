@@ -122,4 +122,4 @@ class NN(object):
             training = self.train_cnn,
             trainable = self.train_cnn,
             name = name
-        )
+)
