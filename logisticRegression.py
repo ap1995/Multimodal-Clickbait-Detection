@@ -4,7 +4,7 @@ import jsonlines
 import re
 import numpy as np
 import pandas as pd
-from sklearn.metrics import accuracy_score, precision_score
+from sklearn.metrics import accuracy_score
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn import linear_model
 from tqdm import tqdm
@@ -15,26 +15,46 @@ def run(train_data, valid_data, test_data, truth_data):
     truth_data_df = pd.DataFrame.from_dict(truth_data)
     train = pd.merge(train_data_df, truth_data_df, on="id")
     data = train.values
-    print("Training data length", len(data))
+
+    textFeatures = ["postText", "targetCaptions", "targetParagraphs", "targetTitle", "targetKeywords",
+                    "targetDescription", "truthClass"]
+
+    vals = data.tolist()
+    final_vals = []
+    # print(vals[0])
+    for i in range(len(vals)):
+        if vals[i][1] != []:
+            print(vals[i][2])
+            final_vals.append([vals[i][2], vals[i][4], vals[i][5], vals[i][6], vals[i][7], vals[i][8], vals[i][9]])
+
+    vals_df = pd.DataFrame(final_vals, columns=["postText", "targetCaptions", "targetParagraphs", "targetTitle", "targetKeywords",
+                    "targetDescription", "truthClass"])
+    textColumns = vals_df.values.tolist()
 
     df = []
     y = []
+    print('---------')
+    print(len(final_vals))
 
-    for i in data:
-        if(i[9]=="clickbait"):
+    VALIDATION_SPLIT = 0.1
+    nb_validation_samples = int(VALIDATION_SPLIT * len(final_vals))
+    valid_data = final_vals[:nb_validation_samples]
+    test_data = final_vals[int(0.8 * len(final_vals)):int(0.9 * len(final_vals))]
+    final_vals = final_vals[0:int(len(final_vals)*0.8)]
+
+    for i in final_vals:
+        if(i[6]=="clickbait"):
             y.append(1)
         else:
             y.append(0)
+    # print(textColumns[0])
 
-    textFeatures = ["postText", "targetCaptions", "targetParagraphs", "targetTitle", "targetKeywords", "targetDescription"]
-    textColumns = train[textFeatures]
-    textColumns = textColumns.values.tolist()
-
-    for i in range(len(textColumns)):
+    for i in range(len(final_vals)):
         text = []
-        for j in range(0,5):
-            k = textColumns[i][j]
-            if (j == 3 or j == 4):
+        for j in range(0,6):
+            k = final_vals[i][j]
+            # print(k, j)
+            if (j == 2 or j == 3):
                 text.append(k)
             else:
                 text+=k
@@ -51,33 +71,36 @@ def run(train_data, valid_data, test_data, truth_data):
     X_train_tfidf = tfidf_transformer.fit_transform(X)
     print(X_train_tfidf.shape)
 
-    model = linear_model.LinearRegression()
-    model.fit(X_train_tfidf, y)
+    clf = linear_model.LinearRegression()
+    clf.fit(X_train_tfidf, y)
 
     ### VALIDATION DATA ###
 
     print("Validation")
-    valid_data_df = pd.DataFrame.from_dict(valid_data)
-    valid = pd.merge(valid_data_df, truth_data_df, on="id")
-    vdata = valid.append(train).values
+    # valid_data_df = pd.DataFrame(valid_data)
+    # valid_data_df = pd.DataFrame.from_dict(valid_data)
+    # valid = pd.merge(valid_data_df, truth_data_df, on="id")
+    # vdata = valid.append(train).values
+    # vdata = final_vals.append(valid_data_df.values).tolist()
+    vdata = final_vals + valid_data
 
     y_valid = []
     for i in vdata:
-        if (i[9] == "clickbait"):
+        if (i[6] == "clickbait"):
             y_valid.append(1)
-        if (i[9] == "no-clickbait"):
+        if (i[6] == "no-clickbait"):
             y_valid.append(0)
 
     y_valid = pd.DataFrame(y_valid)
     print("Y_valid length", len(y_valid))
-    vdata = valid[textFeatures].append(train[textFeatures]).values.tolist()
+    # vdata = valid[textFeatures].append(train[textFeatures]).values.tolist()
 
     df_valid = []
     for i in range(len(vdata)):
         text = []
         for j in range(0, 5):
             k = vdata[i][j]
-            if (j == 3 or j == 4):
+            if (j == 2 or j == 3):
                 text.append(k)
             else:
                 text += k
@@ -92,36 +115,40 @@ def run(train_data, valid_data, test_data, truth_data):
     for v in df_valid:
         valid_X = vectorizer.transform([v])
         X_valid_tfidf = tfidf_transformer.transform(valid_X)
-        predicted.append(model.predict(X_valid_tfidf).round())
+        predicted.append(clf.predict(X_valid_tfidf).round())
 
     scores = accuracy_score(y_valid, predicted)
     print("Validation Data Accuracy ", scores)
 
     ### TEST DATA ###
 
-    test_data_df = pd.DataFrame.from_dict(test_data)
-    test = pd.merge(test_data_df, truth_data_df, on="id")
-    tdata = test.values
-    print("length of test data")
-    print(len(tdata))
+    # predicted = []
+    # for t in df_test:
+    #     test_X = vectorizer.transform([t])
+    #     X_test_tfidf = tfidf_transformer.transform(test_X)
+    #     predicted.append(model.predict(X_test_tfidf).round())
+    #
+    # scores = accuracy_score(y_test, predicted)
+
+    tdata = test_data
 
     y_test =[]
     df_test =[]
 
     for i in tdata:
-        if(i[9]=="clickbait"):
+        if(i[6]=="clickbait"):
             y_test.append(1)
-        if(i[9]=="no-clickbait"):
+        if(i[6]=="no-clickbait"):
             y_test.append(0)
 
-    textColumns_test = test[textFeatures]
-    textColumns_test = textColumns_test.values.tolist()
+    # textColumns_test = test[textFeatures]
+    # textColumns_test = textColumns_test.values.tolist()
 
-    for i in range(len(textColumns_test)):
+    for i in range(len(tdata)):
         text = []
         for j in range(0,5):
-            k = textColumns_test[i][j]
-            if (j == 3 or j == 4):
+            k = tdata[i][j]
+            if (j == 2 or j == 3):
                 text.append(k)
             else:
                 text+=k
@@ -131,11 +158,15 @@ def run(train_data, valid_data, test_data, truth_data):
             words +=" ".join(string.split())
         df_test+=[words]
 
+    # test_X = vectorizer.fit_transform(df_test)
+    # X_test_tfidf = tfidf_transformer.fit_transform(test_X)
+    # predicted = model.predict(X_test_tfidf)
+    # print(clf.score(X_test_tfidf, y_test))
     predicted = []
     for t in df_test:
         test_X = vectorizer.transform([t])
         X_test_tfidf = tfidf_transformer.transform(test_X)
-        predicted.append(model.predict(X_test_tfidf).round())
+        predicted.append(clf.predict(X_test_tfidf).round())
 
     scores = accuracy_score(y_test, predicted)
     print("Test Data Accuracy ", scores)
@@ -168,12 +199,13 @@ test_data = []
 with jsonlines.open('instances.jsonl') as reader:
     for obj in reader.iter(type=dict, skip_invalid=True):
         count += 1
-        if (count > 15630 and count <= 17584):
-            valid_data.append(obj)
-        if (count > 17584):
-            test_data.append(obj)
-        if(count<=15630):
-            train_data.append(obj)
+        train_data.append(obj)
+        # if (count > 15630 and count <= 17584):
+        #     valid_data.append(obj)
+        # if (count > 17584):
+        #     test_data.append(obj)
+        # if(count<=15630):
+        #     train_data.append(obj)
 
 count = 0
 truth_data = []

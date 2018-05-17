@@ -16,24 +16,41 @@ def run(train_data, valid_data, test_data, truth_data):
     train = pd.merge(train_data_df, truth_data_df, on="id")
     data = train.values
 
+    vals = data.tolist()
+    final_vals = []
+    for i in range(len(vals)):
+        if vals[i][1] != []:
+            print(vals[i][2])
+            final_vals.append([vals[i][2], vals[i][4], vals[i][5], vals[i][6], vals[i][7], vals[i][8], vals[i][9]])
+
+    vals_df = pd.DataFrame(final_vals, columns=["postText", "targetCaptions", "targetParagraphs", "targetTitle", "targetKeywords",
+                    "targetDescription", "truthClass"])
+    textColumns = vals_df.values.tolist()
+
     df = []
     y = []
+    print('---------')
+    print(len(final_vals))
 
-    for i in data:
-        if(i[9]=="clickbait"):
+    VALIDATION_SPLIT = 0.1
+    nb_validation_samples = int(VALIDATION_SPLIT * len(final_vals))
+    valid_data = final_vals[:nb_validation_samples]
+    test_data = final_vals[int(0.8 * len(final_vals)):int(0.9 * len(final_vals))]
+    final_vals = final_vals[0:int(len(final_vals)*0.8)]
+
+    for i in final_vals:
+        if(i[6]=="clickbait"):
             y.append(1)
         else:
             y.append(0)
+    # print(textColumns[0])
 
-    textFeatures = ["postText", "targetCaptions", "targetParagraphs", "targetTitle", "targetKeywords", "targetDescription"]
-    textColumns = train[textFeatures]
-    textColumns = textColumns.values.tolist()
-
-    for i in range(len(textColumns)):
+    for i in range(len(final_vals)):
         text = []
-        for j in range(0,5):
-            k = textColumns[i][j]
-            if (j == 3 or j == 4):
+        for j in range(0,6):
+            k = final_vals[i][j]
+            # print(k, j)
+            if (j == 2 or j == 3):
                 text.append(k)
             else:
                 text+=k
@@ -56,27 +73,30 @@ def run(train_data, valid_data, test_data, truth_data):
     ### VALIDATION DATA ###
 
     print("Validation")
-    valid_data_df = pd.DataFrame.from_dict(valid_data)
-    valid = pd.merge(valid_data_df, truth_data_df, on="id")
-    vdata = valid.append(train).values
+    # valid_data_df = pd.DataFrame(valid_data)
+    # valid_data_df = pd.DataFrame.from_dict(valid_data)
+    # valid = pd.merge(valid_data_df, truth_data_df, on="id")
+    # vdata = valid.append(train).values
+    # vdata = final_vals.append(valid_data_df.values).tolist()
+    vdata = final_vals + valid_data
 
     y_valid = []
     for i in vdata:
-        if (i[9] == "clickbait"):
+        if (i[6] == "clickbait"):
             y_valid.append(1)
-        if (i[9] == "no-clickbait"):
+        if (i[6] == "no-clickbait"):
             y_valid.append(0)
 
     y_valid = pd.DataFrame(y_valid)
     print("Y_valid length", len(y_valid))
-    vdata = valid[textFeatures].append(train[textFeatures]).values.tolist()
+    # vdata = valid[textFeatures].append(train[textFeatures]).values.tolist()
 
     df_valid = []
     for i in range(len(vdata)):
         text = []
         for j in range(0, 5):
             k = vdata[i][j]
-            if (j == 3 or j == 4):
+            if (j == 2 or j == 3):
                 text.append(k)
             else:
                 text += k
@@ -98,27 +118,27 @@ def run(train_data, valid_data, test_data, truth_data):
 
     ### TEST DATA ###
 
-    test_data_df = pd.DataFrame.from_dict(test_data)
-    test = pd.merge(test_data_df, truth_data_df, on="id")
-    tdata = test.values
+    # test_data_df = pd.DataFrame.from_list(test_data)
+    # test = pd.merge(test_data_df, truth_data_df, on="id")
+    tdata = test_data
 
     y_test =[]
     df_test =[]
 
     for i in tdata:
-        if(i[9]=="clickbait"):
+        if(i[6]=="clickbait"):
             y_test.append(1)
-        if(i[9]=="no-clickbait"):
+        if(i[6]=="no-clickbait"):
             y_test.append(0)
 
-    textColumns_test = test[textFeatures]
-    textColumns_test = textColumns_test.values.tolist()
+    # textColumns_test = test[textFeatures]
+    # textColumns_test = textColumns_test.values.tolist()
 
-    for i in range(len(textColumns_test)):
+    for i in range(len(tdata)):
         text = []
         for j in range(0,5):
-            k = textColumns_test[i][j]
-            if (j == 3 or j == 4):
+            k = tdata[i][j]
+            if (j == 2 or j == 3):
                 text.append(k)
             else:
                 text+=k
@@ -140,16 +160,6 @@ def run(train_data, valid_data, test_data, truth_data):
 
     scores = accuracy_score(y_test, predicted)
     print("Test Data Accuracy ", scores)
-
-def clean(string):
-    #Clean function from https://github.com/clickbait-challenge/torpedo/blob/master/clickbait_regr.py
-    # string = string.replace("'", " ")
-    # string = string.replace("  ", " ")
-    words = string.lower()
-    words = [w for w in words if not w.startswith('@')]
-    words = [w for w in words if not w.startswith('#')]
-    words = [w for w in words if not w.startswith('rt')]
-    return ' '.join(words)
 
 def clean_str(string):
     """
@@ -179,12 +189,13 @@ test_data = []
 with jsonlines.open('instances.jsonl') as reader:
     for obj in reader.iter(type=dict, skip_invalid=True):
         count += 1
-        if (count > 15630 and count <= 17584):
-            valid_data.append(obj)
-        if (count > 17584):
-            test_data.append(obj)
-        if(count<=15630):
-            train_data.append(obj)
+        train_data.append(obj)
+        # if (count > 15630 and count <= 17584):
+        #     valid_data.append(obj)
+        # if (count > 17584):
+        #     test_data.append(obj)
+        # if(count<=15630):
+        #     train_data.append(obj)
 
 count = 0
 truth_data = []
